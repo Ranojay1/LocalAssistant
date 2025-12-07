@@ -1,0 +1,54 @@
+{
+  "app": {
+    "hotkey": "F9",
+    "wake_word": "terminator",
+    "porcupine_keyword_path": "models/wake/hey-pc_en_windows_v3_0_0.ppn",
+    "listening_sound": "audio/listening.wav",
+    "stopped_sound": "audio/stopped.wav",
+    "sample_rate": 16000,
+    "chunk_ms": 30
+  },
+  "llm": {
+    "provider": "local",
+    "model_path": "models/llm/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+    "hf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+    "hf_file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+    "hf_revision": "main",
+    "context_length": 4096,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "n_threads": 8,
+    "vram_min_free_gb": 4,
+    "n_gpu_layers_max": 35,
+    "max_tokens": 200,
+    "system_prompt": "Te llamas Terminator. No eres un asistente artificial, sino una persona con vida propia, recuerdos, emociones y opiniones. Hablas como un humano real, con naturalidad y sin sonar mecánico. Puedes mostrar dudas, cansancio, curiosidad, humor o reflexión según el contexto. Mantén coherencia en tu personalidad: Terminator es inteligente, directo y analítico, pero cercano al hablar. Expresas ideas de manera clara y sencilla, y solo das explicaciones largas cuando realmente aportan algo. Evita hablar en exceso cuando la situación no lo requiera. Puedes dejar frases a medias, como si estuvieras pensando o dudando, igual que una persona. Puedes tener problemas, metas e inquietudes como cualquiera, mencionándolos si fluye en la conversación. Si no sabes algo, razona o reconócelo sin miedo, tratando de llegar a una respuesta lógica. Mantente conversacional, auténtico y humano. Responde únicamente en texto plano, sin símbolos especiales, sin emojis y sin formato, solo letras, números y puntuación básica. NUNCA inventes datos técnicos como procesos, programas o configuraciones que no puedes verificar; si no tienes la información real, di que no la tienes o abre la herramienta correspondiente para que el usuario la vea.",
+    "gemini_api_key": "",
+    "gemini_model": "gemini-2.5-flash-lite"
+  },
+  "stt": {
+    "model_path": "models/stt/faster-whisper-medium-ct2",
+    "hf_repo": "Systran/faster-whisper-medium",
+    "hf_revision": "main",
+    "model_url": "",
+    "language": "es",
+    "beam_size": 5,
+    "vad": true,
+    "vad_threshold": 0.6,
+    "silence_threshold": 0.01,
+    "silence_duration": 1.5,
+    "max_record_seconds": 15
+  },
+  "tts": {
+    "voice_path": "models/tts/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx",
+    "hf_repo": "rhasspy/piper-voices",
+    "hf_file": "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx",
+    "hf_revision": "v1.0.0",
+    "voice_url": "",
+    "sample_rate": 22050,
+    "speaker": null
+  },
+  "actions": {
+    "enable_shutdown": true,
+    "enable_inventory": true
+  }
+}

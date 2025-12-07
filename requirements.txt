@@ -1,0 +1,11 @@
+llama-cpp-python
+faster-whisper
+piper-tts
+sounddevice
+keyboard
+pynvml
+pyyaml
+numpy
+pvporcupine
+google-generativeai
+huggingface_hub

@@ -1,0 +1,33 @@
+app:
+  hotkey: "F9"
+  wake_word: "porcupine"  # placeholder; configure Porcupine keyword file if used
+  porcupine_access_key: ""
+  porcupine_keyword_path: "models/wake/hey-pc_en_windows_v3_0_0.ppn"
+  listening_sound: "audio/listening.wav"
+  stopped_sound: "audio/stopped.wav"
+  sample_rate: 16000
+  chunk_ms: 30
+
+llm:
+  model_path: "models/llm/deepseek-r1-q4_k_m.gguf"
+  context_length: 4096
+  temperature: 0.7
+  top_p: 0.9
+  n_threads: 8
+  vram_min_free_gb: 4  # if free VRAM < threshold, use CPU
+  n_gpu_layers_max: 35  # used only if enough VRAM
+
+stt:
+  model_path: "models/stt/faster-whisper-medium-ct2"
+  beam_size: 5
+  vad: true
+  vad_threshold: 0.6
+
+tts:
+  voice_path: "models/tts/es_ES-carlfm-medium.onnx"
+  sample_rate: 22050
+  speaker: null
+
+actions:
+  enable_shutdown: true
+  enable_inventory: true
