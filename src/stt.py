@@ -34,6 +34,8 @@ class SpeechToText:
         audio_chunks = []
         silence_samples = 0
         silence_limit = int(self.silence_duration * self.sample_rate)
+        speech_detected = False
+        speech_threshold = self.silence_threshold * 2  # Umbral más alto para detectar habla real
         
         def callback(indata, frames, time, status):
             if status:
@@ -58,14 +60,17 @@ class SpeechToText:
                     
                     # Check if silence
                     rms = np.sqrt(np.mean(chunk ** 2))
-                    if rms < self.silence_threshold:
-                        silence_samples += len(chunk)
-                    else:
-                        silence_samples = 0
                     
-                    # Stop if silence detected or max time
+                    # Detectar si hay habla real
+                    if rms >= speech_threshold:
+                        speech_detected = True
+                        silence_samples = 0
+                    elif speech_detected:
+                        silence_samples += len(chunk)
+                    
+                    # Stop if silence detected (después de haber detectado habla) o max time
                     elapsed = time.time() - start_time
-                    if silence_samples >= silence_limit and len(audio_chunks) > 3:
+                    if speech_detected and silence_samples >= silence_limit and len(audio_chunks) > 3:
                         print("[STT] Silencio detectado, finalizando grabación")
                         if self.sound_player:
                             self.sound_player.play_stopped()
@@ -77,18 +82,26 @@ class SpeechToText:
                 except queue.Empty:
                     continue
         
-        if not audio_chunks:
+        if not audio_chunks or not speech_detected:
+            print("[STT] Sin habla detectada")
             return np.array([])
         
         return np.concatenate(audio_chunks)
 
     def transcribe(self):
         audio = self.record()
+        if len(audio) == 0:
+            print("[STT] Audio vacío, no enviando")
+            return ""
+        
         segments, _ = self.model.transcribe(
             audio,
             beam_size=self.cfg.get("beam_size", 5),
             language=self.language,
             task="transcribe",
         )
-        text = " ".join(seg.text for seg in segments)
-        return text.strip()
+        text = " ".join(seg.text for seg in segments).strip()
+        if not text:
+            print("[STT] Texto vacío después de transcribir")
+            return ""
+        return text

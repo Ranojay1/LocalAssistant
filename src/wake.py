@@ -47,9 +47,8 @@ class WakeController:
     def run(self):
         keyboard.add_hotkey(self.hotkey, self._trigger)
         if self._porcupine:
-            self._run_porcupine()
-        else:
-            self.stop_event.wait()
+            threading.Thread(target=self._run_porcupine, daemon=True).start()
+        self.stop_event.wait()
 
     def _trigger(self):
         # Si está sonando TTS, solicitar parada
