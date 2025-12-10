@@ -68,5 +68,8 @@
 
   "epic games": "\"C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe\"",
   "battle.net": "\"C:\\Program Files (x86)\\Battle.net\\Battle.net.exe\"",
-  "riot client": "\"C:\\Riot Games\\Riot Client\\RiotClientServices.exe\""
+  "riot client": "\"C:\\Riot Games\\Riot Client\\RiotClientServices.exe\"",
+
+  "ecualizador": "C:\\Program Files\\EqualizerAPO\\Editor.exe",
+  "silenciar micrófono": "powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{F1}')\""
 }
