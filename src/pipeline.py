@@ -3,6 +3,9 @@ import platform
 import os
 import shutil
 import subprocess
+from collections import deque
+from datetime import datetime, timedelta
+from src.user_memory import UserMemory
 
 
 class Pipeline:
@@ -15,12 +18,21 @@ class Pipeline:
         self.sound_player = sound_player
         self.intent_hints = getattr(actions, "hints", lambda: [])
         self.system_context = self._system_summary()
+        self.conversation_history = deque(maxlen=20)  # Últimos 20 turnos (10 min aprox)
+        self.user_memory = UserMemory()
+        self.onboarding_mode = not self.user_memory.is_complete()
+        self.waiting_for_field = None
+        self.onboarding_started = False
 
     def run(self):
         while True:
             event = self.events.get()
             if event.get("type") == "wake":
-                self._handle_wake()
+                # Onboarding en la primera llamada
+                if self.onboarding_mode and not self.onboarding_started:
+                    self._run_onboarding()
+                else:
+                    self._handle_wake()
 
     def _handle_wake(self):
         try:
@@ -32,46 +44,46 @@ class Pipeline:
                 print("[Pipeline] Sin texto, finalizando")
                 return
 
-            action_reply = self.actions.handle(text)
-            if action_reply:
-                print(f"[Pipeline] Acción ejecutada: {action_reply}")
-                self.tts.speak(action_reply)
-                # Si la acción pidió confirmación (actions.pending), escuchar sí/no y procesar
-                attempts = 0
-                while getattr(self.actions, "pending", None) and attempts < 2:
-                    print("[Pipeline] Esperando confirmación...")
-                    confirm = self.stt.transcribe()
-                    self.sound_player.play_stopped()
-                    print(f"[Pipeline] Confirmación: {confirm}")
-                    if not confirm:
-                        if hasattr(self.actions, "cancel_pending"):
-                            self.actions.cancel_pending()
-                        break
-                    follow = self.actions.handle(confirm)
-                    if follow:
-                        print(f"[Pipeline] Acción ejecutada: {follow}")
-                        self.tts.speak(follow)
-                    attempts += 1
-                return
-
-            # Si no se ejecutó acción directa, pedir al LLM que clasifique a intent conocido
-            predicted_intent = self._classify_intent(text)
-            if predicted_intent:
-                action_reply = self.actions.handle(predicted_intent)
-                if action_reply:
-                    print(f"[Pipeline] Acción por LLM: {action_reply}")
-                    self.tts.speak(action_reply)
-                    return
-
+            # LLM decide TODO (sin clasificación previa)
             print("[Pipeline] Generando respuesta LLM...")
             system_prompt = self.llm.config.get("system_prompt", "Responde breve.")
             hints = getattr(self.actions, "hints", lambda: [])()
-            if hints:
-                system_prompt = f"{system_prompt}\nAcciones disponibles: {', '.join(hints)}. Si el usuario pide una de ellas, responde ejecutando la acción en lugar de usar el LLM."
+            
             if self.system_context:
                 system_prompt = f"{system_prompt}\nDatos del equipo: {self.system_context}"
-            system_prompt += "\n\nCRÍTICO: SOLO puedes usar comandos de esta lista EXACTA: " + ", ".join(hints or []) + ". Si necesitas ejecutar uno, escribe [CMD:nombre_exacto] AL PRINCIPIO. Ejemplo: '[CMD:administrador tareas] Revisa los procesos aquí.' NUNCA inventes comandos que no estén en la lista. Si no hay comando adecuado, responde sin ejecutar nada."
+            
+            # Instrucciones claras para comandos
+            if hints:
+                system_prompt += f"\n\nPuedes ejecutar estos comandos: {', '.join(hints)}."
+                system_prompt += "\n\nPara ABRIR/EJECUTAR una aplicación: escribe [CMD:nombre_exacto]."
+                system_prompt += "\nEjemplo: 'Abre Discord' → '[CMD:discord] Abriendo Discord'"
+                system_prompt += "\nEjemplo: 'Necesito el administrador de tareas' → '[CMD:administrador tareas] Aquí está'"
+            
+            # Instrucciones para búsquedas web
+            web_enabled = self.llm.config.get("web_search", False)
+            if web_enabled:
+                system_prompt += "\n\nPara BUSCAR EN INTERNET: escribe [SEARCH:consulta]."
+                system_prompt += "\nEjemplo: 'Busca qué es GitHub' → '[SEARCH:qué es GitHub]'"
+                system_prompt += "\nEjemplo: '¿Quién ganó el mundial?' → '[SEARCH:mundial fútbol ganador 2022]'"
+                system_prompt += "\n\nDISTINGUE: 'Abre Epic Games' = [CMD:epic games] | 'Busca qué es Epic Games' = [SEARCH:qué es Epic Games]"
+            
+            system_prompt += "\n\nNUNCA inventes comandos que no estén en la lista."
+            
+            # Añadir memoria del usuario
+            user_context = self.user_memory.get_context()
+            if user_context:
+                system_prompt += f"\n\nDatos del usuario:\n{user_context}"
+            
+            # Añadir historial de conversación
+            history_context = self._get_recent_history()
+            if history_context:
+                system_prompt += f"\n\nHistorial reciente:\n{history_context}"
+            
             reply = self.llm.generate(text, system_prompt=system_prompt)
+            
+            # Guardar en historial e incrementar interacciones
+            self._add_to_history(text, reply)
+            self.user_memory.increment_interactions()
             
             # Clean up if model continues dialogue
             if "Usuario:" in reply or "Pregunta:" in reply:
@@ -101,17 +113,32 @@ class Pipeline:
             return None
 
         norm_text = self._norm(text)
+        lower_text = text.lower()
+        
+        # Detectar búsquedas web y preguntas (no ejecutar comandos)
+        search_words = ["busca", "búsqueda", "investiga", "consulta en", "mira en internet", "en internet", "en la web"]
+        question_words = ["qué es", "quién", "cómo", "cuándo", "dónde", "por qué", "cuál", "explica", "dime sobre", "qué significa", "para qué"]
+        
+        is_search = any(sw in lower_text for sw in search_words)
+        is_question = any(qw in lower_text for qw in question_words)
+        
+        if is_search or is_question:
+            return None
 
         # Filtra hints que aparezcan en el texto normalizado; si no hay ninguno, no clasifica
         candidate_hints = [h for h in hints if self._norm(h) in norm_text]
         if not candidate_hints:
             return None
 
-        # Coincidencia directa
-        for hint in candidate_hints:
-            norm_hint = self._norm(hint)
-            if norm_hint in norm_text:
-                return hint
+        # Coincidencia directa solo si es comando explícito
+        action_words = ["abre", "abrir", "inicia", "ejecuta", "lanza", "cierra", "activa"]
+        has_action = any(aw in lower_text for aw in action_words)
+        
+        if has_action:
+            for hint in candidate_hints:
+                norm_hint = self._norm(hint)
+                if norm_hint in norm_text:
+                    return hint
 
         options = ", ".join(candidate_hints)
         prompt = (
@@ -119,12 +146,12 @@ class Pipeline:
             + options
             + ". Usuario: "
             + text
-            + ". Responde solo una de las opciones exacta o 'none'."
+            + ". Si es pregunta, responde 'none'. Si es comando para ejecutar, responde la opción exacta."
         )
         try:
             prediction = self.llm.generate(
                 prompt,
-                system_prompt="Devuelve solo una opción exacta de la lista o 'none'.",
+                system_prompt="Si es pregunta sobre algo, devuelve 'none'. Si es comando para ejecutar, devuelve la opción exacta de la lista.",
             )
             norm_pred = self._norm(prediction)
             if norm_pred in ("none", "ninguna"):
@@ -212,6 +239,62 @@ class Pipeline:
 
         cores = os.cpu_count() or 0
         return name, cores
+    
+    def _run_onboarding(self):
+        """Ejecuta proceso de onboarding completo al inicio"""
+        self.onboarding_started = True
+        print("[Memory] Iniciando onboarding...")
+        
+        # Mensaje de bienvenida
+        welcome = "Hola. Voy a hacerte unas preguntas para conocerte mejor. Sé breve y conciso."
+        self.tts.speak(welcome)
+        
+        # Iterar por cada pregunta
+        for field, question in self.user_memory.onboarding_questions:
+            print(f"[Memory] Pregunta: {question}")
+            self.tts.speak(question)
+            
+            # Escuchar respuesta (sin sonido de listening)
+            answer = self.stt.transcribe()
+            
+            if answer:
+                self.user_memory.update_field(field, answer)
+                print(f"[Memory] Guardado: {field} = {answer}")
+            else:
+                print(f"[Memory] Sin respuesta para: {field}")
+        
+        # Completar onboarding
+        self.onboarding_mode = False
+        completion_msg = "Perfecto. Ya te conozco mejor."
+        print("[Memory] Onboarding completo")
+        self.tts.speak(completion_msg)
+    
+    def _add_to_history(self, user_text: str, assistant_reply: str):
+        """Añade una interacción al historial con timestamp"""
+        timestamp = datetime.now()
+        self.conversation_history.append({
+            "time": timestamp,
+            "user": user_text,
+            "assistant": assistant_reply
+        })
+    
+    def _get_recent_history(self) -> str:
+        """Obtiene historial de los últimos 10 minutos"""
+        if not self.conversation_history:
+            return ""
+        
+        cutoff_time = datetime.now() - timedelta(minutes=10)
+        recent = [entry for entry in self.conversation_history if entry["time"] > cutoff_time]
+        
+        if not recent:
+            return ""
+        
+        history_lines = []
+        for entry in recent[-10:]:  # Máximo 10 interacciones
+            history_lines.append(f"Usuario: {entry['user']}")
+            history_lines.append(f"Tú: {entry['assistant']}")
+        
+        return "\n".join(history_lines)
 
     def _extract_commands(self, text: str):
         """Extrae comandos embebidos [CMD:nombre] y devuelve texto limpio + lista de comandos."""

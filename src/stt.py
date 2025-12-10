@@ -104,4 +104,42 @@ class SpeechToText:
         if not text:
             print("[STT] Texto vacío después de transcribir")
             return ""
+        
+        # Detectar deletreos (letras separadas) y convertir a palabra
+        text = self._detect_spelling(text)
         return text
+    
+    def _detect_spelling(self, text: str) -> str:
+        """Detecta deletreos letra por letra y los convierte en palabras"""
+        words = text.split()
+        
+        # Si hay más de 3 palabras de una sola letra seguidas, es deletreo
+        single_letters = []
+        result_words = []
+        
+        for word in words:
+            clean = word.strip(".,!?").upper()
+            if len(clean) == 1 and clean.isalpha():
+                single_letters.append(clean)
+            else:
+                if len(single_letters) >= 3:
+                    # Es un deletreo, unir letras
+                    spelled_word = "".join(single_letters)
+                    result_words.append(spelled_word)
+                    print(f"[STT] Deletreo detectado: {' '.join(single_letters)} → {spelled_word}")
+                elif single_letters:
+                    # Pocas letras sueltas, mantener
+                    result_words.extend(single_letters)
+                
+                single_letters = []
+                result_words.append(word)
+        
+        # Procesar letras finales
+        if len(single_letters) >= 3:
+            spelled_word = "".join(single_letters)
+            result_words.append(spelled_word)
+            print(f"[STT] Deletreo detectado: {' '.join(single_letters)} → {spelled_word}")
+        elif single_letters:
+            result_words.extend(single_letters)
+        
+        return " ".join(result_words)

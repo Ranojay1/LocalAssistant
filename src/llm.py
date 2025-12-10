@@ -1,5 +1,6 @@
 from pathlib import Path
 import pynvml
+import re
 
 
 def _free_vram_gb() -> float:
@@ -17,6 +18,12 @@ class LlmEngine:
         cfg = config.llm
         self.config = cfg
         self.provider = cfg.get("provider", "local")
+        self.web_search_enabled = cfg.get("web_search", False)
+        self.searcher = None
+        
+        if self.web_search_enabled:
+            from src.web_search import WebSearch
+            self.searcher = WebSearch()
         
         if self.provider == "gemini":
             self._init_gemini(cfg)
@@ -67,12 +74,16 @@ class LlmEngine:
         if system_prompt is None:
             system_prompt = self.config.get("system_prompt", "")
         
+        # Añadir capacidad de búsqueda al system prompt
+        if self.web_search_enabled and self.searcher:
+            system_prompt += "\n\nSi no conoces información actual o necesitas datos específicos, escribe [SEARCH:tu consulta aquí] y recibirás resultados de búsqueda."
+        
+        # Primera generación: detectar si pide búsqueda
         if self.provider == "gemini":
             full_prompt = f"{system_prompt} {prompt}" if system_prompt else prompt
             response = self.gemini_model.generate_content(full_prompt)
             reply = response.text.strip()
         else:
-            # Usar formato de chat messages con system_prompt separado
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -87,5 +98,40 @@ class LlmEngine:
                 repeat_penalty=1.2,
             )
             reply = out["choices"][0]["message"]["content"].strip()
+        
+        # Detectar y procesar búsquedas
+        if self.web_search_enabled and self.searcher:
+            search_pattern = r'\[SEARCH:(.*?)\]'
+            searches = re.findall(search_pattern, reply, re.IGNORECASE)
+            
+            if searches:
+                print(f"[LLM] Búsquedas detectadas: {searches}")
+                search_results = []
+                for query in searches:
+                    query = query.strip()
+                    result = self.searcher.search(query)
+                    search_results.append(f"Búsqueda '{query}':\n{result}")
+                
+                # Segunda generación con contexto de búsqueda
+                context = "\n\n".join(search_results)
+                enhanced_prompt = f"Pregunta original: {prompt}\n\nResultados de búsqueda:\n{context}\n\nResponde basándote en esta información:"
+                
+                if self.provider == "gemini":
+                    response = self.gemini_model.generate_content(enhanced_prompt)
+                    reply = response.text.strip()
+                else:
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": enhanced_prompt}
+                    ]
+                    out = self.llm.create_chat_completion(
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=0.3,
+                        top_p=0.5,
+                        stop=["Usuario:", "Pregunta:", "\nHola", "modelo de", "asistente de IA"],
+                        repeat_penalty=1.2,
+                    )
+                    reply = out["choices"][0]["message"]["content"].strip()
         
         return reply

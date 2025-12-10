@@ -9,3 +9,5 @@ numpy
 pvporcupine
 google-generativeai
 huggingface_hub
+requests
+beautifulsoup4

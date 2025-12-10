@@ -33,23 +33,14 @@
   "conexiones red avanzadas": "ncpa.cpl",
   "directx diagnostico": "dxdiag",
 
-  "opera": "start opera",
-  "brave": "start brave",
-  "firefox": "start firefox",
 
   "whatsapp": "start shell:AppsFolder\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App",
   "telegram": "start shell:AppsFolder\\TelegramMessenger.TelegramDesktop_cv1g1gvanyjgm!App",           
 
-  "vlc": "\"C:\\Program Files\\VideoLAN\\VLC\\vlc.exe\"",
   "obs studio": "\"C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe\"",
-  "audacity": "\"C:\\Program Files\\Audacity\\Audacity.exe\"",
-
-  "7zip": "\"C:\\Program Files\\7-Zip\\7zFM.exe\"",
-  "winrar": "\"C:\\Program Files\\WinRAR\\WinRAR.exe\"",
 
   "visual studio code": "\"%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe\"",
   "github desktop": "\"%LOCALAPPDATA%\\GitHubDesktop\\GitHubDesktop.exe\"",
-  "notepad++": "\"C:\\Program Files\\Notepad++\\notepad++.exe\"",
 
   "youtube": "start https://www.youtube.com",
   "google": "start https://www.google.com",
@@ -57,12 +48,6 @@
   "drive": "start https://drive.google.com",
   "maps": "start https://maps.google.com",
 
-  "gimp": "\"C:\\Program Files\\GIMP 2\\bin\\gimp-2.10.exe\"",
-  "photoshop": "\"C:\\Program Files\\Adobe\\Adobe Photoshop\\Photoshop.exe\"",
-  "premiere": "\"C:\\Program Files\\Adobe\\Adobe Premiere Pro\\Adobe Premiere Pro.exe\"",
-  "after effects": "\"C:\\Program Files\\Adobe\\Adobe After Effects\\Support Files\\AfterFX.exe\"",
-
-  "unity hub": "\"C:\\Program Files\\Unity Hub\\Unity Hub.exe\"",
   "virtualbox": "\"C:\\Program Files\\Oracle\\VirtualBox\\VirtualBox.exe\"",
   "vmware": "\"C:\\Program Files (x86)\\VMware\\VMware Workstation\\vmware.exe\"",
 
@@ -70,6 +55,6 @@
   "battle.net": "\"C:\\Program Files (x86)\\Battle.net\\Battle.net.exe\"",
   "riot client": "\"C:\\Riot Games\\Riot Client\\RiotClientServices.exe\"",
 
-  "ecualizador": "C:\\Program Files\\EqualizerAPO\\Editor.exe",
+  "ecualizador": "C:\\Program Files\\EqualizerAPO\\asd.bat",
   "silenciar micrófono": "powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{F1}')\""
 }
